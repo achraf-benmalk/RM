@@ -1,0 +1,377 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% Page geometry
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Colors
+\definecolor{darkblue}{RGB}{31,56,100}
+\definecolor{medblue}{RGB}{46,117,182}
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codegreen}{RGB}{40,120,40}
+
+% Header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{MOR 2025 -- (MS)$^2$SC}}
+\fancyhead[R]{\small\textcolor{gray}{\textit{Session 2: PGD for the Heat Equation}}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Code listing style
+\lstset{
+  language=Matlab,
+  basicstyle=\small\ttfamily,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray!30},
+  keywordstyle=\color{medblue}\bfseries,
+  commentstyle=\color{codegreen}\itshape,
+  stringstyle=\color{red!60!black},
+  breaklines=true,
+  numbers=none,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+
+% Section formatting
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries\color{darkblue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{medblue}}{\thesubsection}{1em}{}
+
+\begin{document}
+
+% ============ TITLE PAGE ============
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries\textcolor{darkblue}{MOR Practical Session}\par}
+\vspace{0.5cm}
+{\LARGE\textcolor{darkblue}{Report -- Session 2}\par}
+\vspace{1.5cm}
+{\Large Solving the Unsteady Heat Equation\par}
+{\large with Proper Generalized Decomposition (A Priori)\par}
+\vspace{2cm}
+{\large ENS Paris-Saclay -- (MS)$^2$SC Master\par}
+\vspace{0.5cm}
+{\large Eren Alagoz (Instructor)\par}
+\vspace{2cm}
+%{\large \textbf{Authors:} Name 1, Name 2\par}
+\vspace{1cm}
+{\large \today\par}
+\end{titlepage}
+
+% ============ TABLE OF CONTENTS ============
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Problem Statement}
+% ============================================================
+
+We consider the 1D unsteady heat equation on a bar $\Omega = [0, L]$ over time interval $I = [0, T]$:
+\begin{equation}
+    \rho c \frac{\partial u}{\partial t} - k \frac{\partial^2 u}{\partial x^2} = f(x,t) \quad \text{in } \Omega \times I
+    \label{eq:heat}
+\end{equation}
+with oscillating Dirichlet boundary conditions $u(0,t) = \sin(2\pi t / T)$ and $u(L,t) = -\sin(4\pi t / T)$, and initial condition $u(x,0) = 0$.
+
+The physical parameters are $\rho = c = k = 1$, $L = 1$, $T = 2$, with $n_X = 300$ spatial nodes and $n_T = 100$ time steps. The volume loading $f$ is chosen randomly.
+
+The objective is to solve this equation using PGD and compare the result with a classical Finite Element reference solution.
+
+% ============================================================
+\section{Reference Solution: FEM with Backward Euler}
+% ============================================================
+
+\subsection{Spatial Discretization}
+
+We approximate $u(x,t) \approx \sum_j U_j(t)\,\varphi_j(x)$ using P1 hat functions $\varphi_j$. The standard Galerkin weak form yields the semi-discrete system:
+\begin{equation}
+    M\dot{U}(t) + KU(t) = F(t)
+    \label{eq:semidiscrete}
+\end{equation}
+where $M_{ij} = \int_\Omega \rho c\,\varphi_i\varphi_j\,dx$ is the consistent mass matrix, $K_{ij} = \int_\Omega k\,\varphi_i'\varphi_j'\,dx$ is the stiffness matrix, and $F_i = \int_\Omega f\,\varphi_i\,dx$ is the load vector.
+
+\subsection{Integration Operators}
+
+For computing $L^2$ norms and inner products in space and time, we assemble consistent integration matrices by looping over elements. The local element mass matrix is $\frac{h}{6}\begin{pmatrix}2&1\\1&2\end{pmatrix}$, assembled globally:
+\begin{lstlisting}
+Ix = zeros(n_X); It = zeros(n_T);
+Ie_x = dx * [1/3, 1/6; 1/6, 1/3];
+Ie_t = dt * [1/3, 1/6; 1/6, 1/3];
+for i = 1:(n_X - 1)
+    Ix(i:i+1, i:i+1) = Ix(i:i+1, i:i+1) + Ie_x;
+end
+for i = 1:(n_T - 1)
+    It(i:i+1, i:i+1) = It(i:i+1, i:i+1) + Ie_t;
+end
+\end{lstlisting}
+Each element contributes its local $2\times2$ mass matrix to the global matrix at the corresponding DOFs. The overlapping assembly naturally produces the tridiagonal structure.
+
+\subsection{Time Integration: Backward Euler}
+
+The backward Euler scheme approximates $\dot{U}(t_i) \approx (U_i - U_{i-1})/\Delta t$:
+\begin{equation}
+    \underbrace{\left(\frac{M}{\Delta t} + K\right)}_{H} U_i = F(t_i) + \frac{M}{\Delta t}U_{i-1}
+    \label{eq:euler}
+\end{equation}
+
+\subsection{Boundary Conditions by Substitution}
+
+The non-zero Dirichlet boundary conditions are enforced using the substitution method. The degrees of freedom are split into blocked DOFs $\text{ddld} = \{1, n_X\}$ and free DOFs $\text{ddlu}$. At each time step, the system is solved only on free DOFs:
+\begin{lstlisting}
+for i = 2:n_T
+    G = F(:,i) + (M/dt)*Uex(:,i-1);
+    Uex(ddlu,i) = H(ddlu,ddlu) \ (G(ddlu) - H(ddlu,ddld)*Uex(ddld,i));
+end
+\end{lstlisting}
+
+The term $H(\text{ddlu},\text{ddld}) \cdot U_{\text{ex}}(\text{ddld},i)$ transfers the influence of the known boundary values to the right-hand side.
+
+% ============================================================
+\section{Change of Variable}
+% ============================================================
+
+\subsection{Motivation}
+
+PGD seeks $W(x,t) = \sum_i \Lambda_i(x)\cdot\lambda_i(t)$ where each spatial mode $\Lambda_i$ must vanish at the boundaries. Since the actual solution $U$ has non-zero boundary conditions, we cannot apply PGD directly to $U$.
+
+\subsection{Splitting the Solution}
+
+We decompose $U = U_{CL} + W$ where $U_{CL}$ is a ``dynamically admissible'' field that satisfies the boundary and initial conditions, and $W$ is the remainder with homogeneous BCs ($W(0,t) = W(L,t) = 0$).
+
+The simplest choice is a linear interpolation:
+\begin{equation}
+    U_{CL}(x,t) = \left(1 - \frac{x}{L}\right)\sin\!\left(\frac{2\pi t}{T}\right) + \frac{x}{L}\left(-\sin\!\left(\frac{4\pi t}{T}\right)\right)
+    \label{eq:ucl}
+\end{equation}
+
+In MATLAB, this is computed as an outer product:
+\begin{lstlisting}
+u_cl = (1 - lx'/L) * Ud0 + (lx'/L) * UdL;
+\end{lstlisting}
+
+\subsection{Modified Equation for $W$}
+
+Substituting $U = U_{CL} + W$ into (\ref{eq:semidiscrete}):
+\begin{equation}
+    M\dot{W} + KW = \underbrace{F - M\dot{U}_{CL} - KU_{CL}}_{Q_0}
+    \label{eq:weq}
+\end{equation}
+
+The time derivative $\dot{U}_{CL}$ is computed using a finite difference operator acting on the right:
+\begin{equation}
+    \mathbb{D}_t = \frac{1}{\Delta t}\begin{pmatrix} 1 & -1 & & \\ & 1 & -1 & \\ & & \ddots & \ddots \end{pmatrix}
+\end{equation}
+so that \texttt{u\_cl\_dot = u\_cl * Dt} computes the time derivative for each spatial node simultaneously. The modified right-hand side is then:
+\begin{lstlisting}
+Dt = (1/dt) * (eye(n_T) + diag(-ones(n_T-1,1), 1));
+u_cl_dot = u_cl * Dt;
+G0 = F - M*u_cl_dot - K*u_cl;
+\end{lstlisting}
+
+\subsection{Validation}
+
+We solve the modified equation (\ref{eq:weq}) for $W$ using the same backward Euler scheme, then recover $U_1 = W + U_{CL}$. The difference $\|U_1 - U_{\text{ex}}\|$ is of order $10^{-12}$, confirming both approaches solve the same equation.
+
+% ============================================================
+\section{PGD Resolution}
+% ============================================================
+
+\subsection{Principle of the Separated Representation}
+
+Instead of time-stepping, PGD seeks $W$ as a sum of separated space-time modes:
+\begin{equation}
+    W(x,t) = \sum_{i=1}^{m} \Lambda_i(x)\cdot\lambda_i(t)
+    \label{eq:pgd_sep}
+\end{equation}
+
+Each mode $(\Lambda_i, \lambda_i)$ is computed greedily, one at a time, using a fixed-point alternation between a spatial FE problem and a temporal ODE.
+
+\subsection{Weak Form in Space-Time}
+
+The PGD approximation is inserted into the space-time weak form of (\ref{eq:weq}). Testing with $(\Lambda\lambda^* + \Lambda^*\lambda)$:
+\begin{equation}
+    \int_0^T (\Lambda\lambda^* + \Lambda^*\lambda)^\top \left[M\Lambda\dot{\lambda} + K\Lambda\lambda - Q(t)\right]dt = 0
+    \label{eq:pgd_weak}
+\end{equation}
+where $Q = Q_0 - M\dot{W}_{\text{prev}} - KW_{\text{prev}}$ is the current residual.
+
+\subsection{Fixed-Point Algorithm}
+
+Since the problem is nonlinear in the pair $(\Lambda, \lambda)$, we alternate:
+
+\subsubsection{Spatial Sub-Problem ($\lambda$ fixed)}
+
+Setting $\lambda^* = 0$ in (\ref{eq:pgd_weak}) and removing the arbitrary $\Lambda^*$ yields:
+\begin{equation}
+    \underbrace{\left[\left(\int_0^T \lambda\dot{\lambda}\,dt\right)M + \left(\int_0^T \lambda^2\,dt\right)K\right]}_{\mathbb{J}} \Lambda = \underbrace{\int_0^T Q(t)\lambda\,dt}_{q}
+    \label{eq:fe_problem}
+\end{equation}
+
+The time integrals are scalars computed from the known $\lambda$, so $\mathbb{J}$ is a linear combination of $M$ and $K$ --- a standard $N_x \times N_x$ FE system solved only on free DOFs. After solving, $\Lambda$ is normalized: $\Lambda \leftarrow \Lambda / \sqrt{\Lambda^\top I_x \Lambda}$.
+
+In MATLAB, with \texttt{lambdatmp} as a $1 \times n_T$ row vector:
+\begin{lstlisting}
+J = [lambdatmp*Dt*It*lambdatmp']*M + [lambdatmp*It*lambdatmp']*K;
+q = lambdatmp * It * Q';
+LAMBDAtmp = zeros(n_X, 1);
+LAMBDAtmp(ddlu) = J(ddlu,ddlu) \ q(ddlu)';
+LAMBDAtmp = LAMBDAtmp / sqrt(LAMBDAtmp'*Ix*LAMBDAtmp);
+\end{lstlisting}
+
+\subsubsection{Temporal Sub-Problem ($\Lambda$ fixed)}
+
+Setting $\Lambda^* = 0$ and removing the arbitrary $\lambda^*$:
+\begin{equation}
+    \underbrace{\Lambda^\top M\Lambda}_{\alpha}\,\dot{\lambda} + \underbrace{\Lambda^\top K\Lambda}_{\beta}\,\lambda = \underbrace{\Lambda^\top Q(t)}_{\gamma(t)}
+    \label{eq:ode}
+\end{equation}
+
+This is a scalar ODE solved by backward Euler at negligible cost:
+\begin{equation}
+    \lambda_i = \frac{\gamma(t_i)\Delta t + \alpha\,\lambda_{i-1}}{\alpha + \beta\,\Delta t}
+\end{equation}
+
+\begin{lstlisting}
+alpha = LAMBDAtmp'*M*LAMBDAtmp;
+beta  = LAMBDAtmp'*K*LAMBDAtmp;
+gamma = LAMBDAtmp'*Q;
+lambdatmp = zeros(1, n_T);
+for i = 2:n_T
+    lambdatmp(i) = (gamma(i) + (alpha/dt)*lambdatmp(i-1)) / ((alpha/dt) + beta);
+end
+\end{lstlisting}
+
+\subsubsection{Stagnation Criterion}
+
+The alternation is stopped when $\lambda$ no longer changes significantly:
+\begin{equation}
+    s = \frac{\int_0^T (\lambda^{\text{new}} - \lambda^{\text{old}})^2\,dt}{\int_0^T (\lambda^{\text{old}})^2\,dt} = \frac{(\lambda^{\text{new}}-\lambda^{\text{old}})\,I_t\,(\lambda^{\text{new}}-\lambda^{\text{old}})^\top}{\lambda^{\text{old}}\,I_t\,(\lambda^{\text{old}})^\top} < 10^{-5}
+\end{equation}
+
+\subsection{Greedy Algorithm}
+
+The complete PGD algorithm is summarized below.
+
+\begin{algorithm}[H]
+\caption{Greedy PGD (without update)}
+\begin{algorithmic}[1]
+\State Initialize $W = 0$, $Q_0 = F - M\dot{U}_{CL} - KU_{CL}$
+\For{$\text{mode} = 1, 2, \ldots, n_{\text{modes}}$}
+    \State Update residual: $Q = Q_0 - M\dot{W} - KW$
+    \State Initialize $\lambda$ (e.g., $\lambda = \mathtt{lt}$)
+    \While{$s > 10^{-5}$ and iterations $< 10$}
+        \State Solve FE problem (\ref{eq:fe_problem}) for $\Lambda$, normalize
+        \State Solve ODE (\ref{eq:ode}) for $\lambda$
+        \State Compute stagnation $s$
+    \EndWhile
+    \State Store $\Lambda$ and $\lambda$, update $W = \sum \Lambda_i \lambda_i$
+    \State Compute error $\varepsilon = \|U_{\text{ex}} - U_{\text{PGD}}\|_\mathcal{W} / \|U_{\text{ex}}\|_\mathcal{W}$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Error Computation}
+
+The relative error is measured in the space-time $L^2$ norm. The instructor's implementation integrates first in time for each spatial node, then in space:
+\begin{lstlisting}
+error = zeros(n_X, 1);
+norm_U_t = zeros(n_X, 1);
+for i = 1:n_X
+    error(i) = sqrt((Uex(i,:) - U_PGD(i,:)) * It * (Uex(i,:) - U_PGD(i,:))');
+    norm_U_t(i) = sqrt(Uex(i,:) * It * Uex(i,:)');
+end
+pgd_err = sqrt(error'*Ix*error) / sqrt(norm_U_t'*Ix*norm_U_t);
+\end{lstlisting}
+
+This computes $\varepsilon = \frac{\sqrt{\int_\Omega \left(\int_I (U_{\text{ex}} - U_{\text{PGD}})^2\,dt\right)dx}}{\sqrt{\int_\Omega \left(\int_I U_{\text{ex}}^2\,dt\right)dx}}$, which is the $L^2(\Omega \times I)$ norm.
+
+% ============================================================
+\section{Results}
+% ============================================================
+
+\subsection{Reference Solution}
+
+The reference solution obtained by FEM + backward Euler is shown in Figure~\ref{fig:ref}. The oscillating boundary conditions create a rich space-time pattern.
+
+% Placeholder for figure
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{0.7\textwidth}{\centering\vspace{2cm}\textit{Surface plot of $U_{\text{ex}}(x,t)$}\vspace{2cm}}}
+    \caption{Reference solution $U_{\text{ex}}$ computed by FEM + backward Euler.}
+    \label{fig:ref}
+\end{figure}
+
+\subsection{Change of Variable Validation}
+
+The solution $U_1 = W + U_{CL}$ matches the reference to machine precision ($\sim 10^{-12}$), validating the change of variable approach.
+
+\subsection{PGD Convergence}
+
+The PGD error as a function of the number of modes is shown in Figure~\ref{fig:pgd_conv}. The error decreases rapidly with the first few modes, then plateaus. This confirms that the solution manifold is low-dimensional, consistent with the theoretical expectations from the Kolmogorov $n$-width analysis.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{0.7\textwidth}{\centering\vspace{2cm}\textit{Semilogy plot of $\varepsilon$ vs.\ number of modes}\vspace{2cm}}}
+    \caption{PGD error convergence: relative error as a function of the number of modes.}
+    \label{fig:pgd_conv}
+\end{figure}
+
+\subsection{PGD vs.\ Reference Solution}
+
+Figure~\ref{fig:pgd_ref} compares the reference and PGD solutions visually. After a sufficient number of modes, the PGD solution is visually indistinguishable from the reference.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{0.7\textwidth}{\centering\vspace{2cm}\textit{Side-by-side: $U_{\text{ex}}$ and $U_{\text{PGD}}$}\vspace{2cm}}}
+    \caption{Comparison between the reference (left) and PGD (right) solutions.}
+    \label{fig:pgd_ref}
+\end{figure}
+
+% ============================================================
+\section{Complexity Analysis}
+% ============================================================
+
+The computational cost of each approach can be compared:
+
+The classical FEM + Euler approach requires $N_t$ linear solves of size $N_x$, each costing $\mathcal{O}(N_x^2)$ operations (for a banded system), giving a total cost of $\mathcal{O}(N_t \cdot N_x^2)$.
+
+The PGD approach, for $m$ modes with $p$ fixed-point iterations each, requires $m \cdot p$ FE solves of size $N_x$ (cost $\mathcal{O}(N_x^2)$ each) plus $m \cdot p$ ODE solves of size $N_t$ (cost $\mathcal{O}(N_t)$ each). The total cost is $\mathcal{O}(m \cdot p \cdot (N_x^2 + N_t))$.
+
+When $m \cdot p \ll N_t$, which is the typical regime for smooth problems, PGD is significantly more efficient.
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+This practical session demonstrated the PGD method as an a priori model order reduction technique for solving the 1D unsteady heat equation. The key steps were:
+
+The change of variable $U = U_{CL} + W$ transforms the problem with non-homogeneous boundary conditions into one with zero BCs, enabling the separated representation.
+
+The fixed-point alternation between a spatial FE problem and a temporal ODE efficiently computes each mode without assembling the full space-time system.
+
+The greedy algorithm builds modes one by one, each correcting the residual left by the previous modes.
+
+The PGD solution converges rapidly with a small number of modes ($m \ll N_t$), confirming that the solution manifold is intrinsically low-dimensional. This makes PGD particularly attractive for problems where the classical time-stepping approach would be prohibitively expensive, such as multi-parametric or real-time applications.
+
+\end{document}

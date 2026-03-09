@@ -1,0 +1,251 @@
+\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+
+% Page geometry
+\geometry{top=2.5cm, bottom=2.5cm, left=2.5cm, right=2.5cm}
+
+% Colors
+\definecolor{darkblue}{RGB}{31,56,100}
+\definecolor{medblue}{RGB}{46,117,182}
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codegreen}{RGB}{40,120,40}
+
+% Header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{MOR 2025 -- (MS)$^2$SC}}
+\fancyhead[R]{\small\textcolor{gray}{\textit{Session 1: Data Decomposition \& Compression}}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Code listing style
+\lstset{
+  language=Matlab,
+  basicstyle=\small\ttfamily,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{gray!30},
+  keywordstyle=\color{medblue}\bfseries,
+  commentstyle=\color{codegreen}\itshape,
+  stringstyle=\color{red!60!black},
+  breaklines=true,
+  numbers=none,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  aboveskip=8pt,
+  belowskip=8pt,
+}
+
+% Section formatting
+\usepackage{titlesec}
+\titleformat{\section}{\Large\bfseries\color{darkblue}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries\color{medblue}}{\thesubsection}{1em}{}
+
+\begin{document}
+
+% ============ TITLE PAGE ============
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Huge\bfseries\textcolor{darkblue}{MOR Practical Session}\par}
+\vspace{0.5cm}
+{\LARGE\textcolor{darkblue}{Report}\par}
+\vspace{1.5cm}
+{\Large Session 1: Data Decomposition and Compression\par}
+{\large (A Posteriori)\par}
+\vspace{2cm}
+{\large ENS Paris-Saclay -- (MS)$^2$SC Master\par}
+\vspace{0.5cm}
+{\large Victor Matray (Instructor)\par}
+\vspace{2cm}
+%{\large \textbf{Authors:} Name 1, Name 2\par}
+\vspace{1cm}
+{\large \today\par}
+\vfill
+\includegraphics[width=3cm]{callas.jpg}
+\vspace{1cm}
+\end{titlepage}
+
+% ============ TABLE OF CONTENTS ============
+\tableofcontents
+\newpage
+
+% ============ PART 1: SVD ============
+\section{SVD Approximation of a Matrix}
+
+\subsection{Method}
+
+The Singular Value Decomposition (SVD) factorizes any $m \times n$ matrix $\underline{\underline{M}}$ into:
+\begin{equation}
+    \underline{\underline{M}} = \underline{\underline{U}} \, \underline{\underline{S}} \, \underline{\underline{V}}^\top
+\end{equation}
+where $\underline{\underline{U}} \in \mathbb{R}^{m \times m}$ contains the left singular vectors, $\underline{\underline{S}} \in \mathbb{R}^{m \times n}$ is a diagonal matrix of singular values $\sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_r \geq 0$, and $\underline{\underline{V}} \in \mathbb{R}^{n \times n}$ contains the right singular vectors.
+
+This decomposition can be rewritten as a sum of rank-1 matrices:
+\begin{equation}
+    \underline{\underline{M}} = \sum_{i=1}^{r} \sigma_i \, \underline{U}_i \, \underline{V}_i^\top
+\end{equation}
+where each term $\sigma_i \underline{U}_i \underline{V}_i^\top$ is called a \textbf{mode}. The Eckart--Young theorem guarantees that the best rank-$N$ approximation in the Frobenius norm is obtained by truncating this sum:
+\begin{equation}
+    \underline{\underline{M}}_{\text{POD}} = \sum_{i=1}^{N} \sigma_i \, \underline{U}_i \, \underline{V}_i^\top
+\end{equation}
+
+Since the singular values are sorted in decreasing order, the first modes carry the most energy (information), while the later modes contribute diminishing detail. This enables data compression by discarding modes with negligible singular values.
+
+\subsection{Application to the Maria Callas Image}
+
+We apply the SVD to a $600 \times 600$ grayscale image of Maria Callas. In MATLAB:
+
+\begin{lstlisting}
+UCimage = imread('image_SVD.jpg');
+M = im2double(UCimage(:,:,1));  % 600x600 gray level matrix
+[U, S, V] = svd(M);
+\end{lstlisting}
+
+The truncated reconstruction is built by accumulating rank-1 modes:
+
+\begin{lstlisting}
+M_POD = zeros(n_T, n_M);
+for o = 1:order
+    M_POD = M_POD + S(o,o) * U(:,o) * V(:,o)';
+end
+\end{lstlisting}
+
+Equivalently, in a single line using matrix slicing:
+\begin{lstlisting}
+M_POD = U(:,1:N) * S(1:N,1:N) * V(:,1:N)';
+\end{lstlisting}
+
+% ============ QUESTION 1 ============
+\subsection{Storage Gain (Question 1)}
+
+The original image requires $m \times n$ stored values. For a truncation at order $N$, we store:
+\begin{itemize}
+    \item $N$ columns of $\underline{\underline{U}}$: $m \times N$ values
+    \item $N$ singular values: $N$ values
+    \item $N$ columns of $\underline{\underline{V}}$: $n \times N$ values
+\end{itemize}
+
+The storage gain is therefore:
+\begin{equation}
+    \boxed{G(N) = \frac{m \times n}{N \times (m + n + 1)}}
+\end{equation}
+
+For the $600 \times 600$ image, this becomes $G(N) = \frac{360\,000}{1201 \, N}$. The gain equals 1 (break-even) at $N \approx 299$, meaning the SVD representation is only beneficial when $N < 299$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{svd_gain.png}
+    \caption{Storage gain as a function of the number of modes $N$. The red dashed line indicates the break-even point (gain $= 1$).}
+    \label{fig:svd_gain}
+\end{figure}
+
+Representative values are summarized in Table~\ref{tab:gain}.
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{@{}ccc@{}}
+        \toprule
+        \textbf{N (modes)} & \textbf{Relative Error} & \textbf{Storage Gain} \\
+        \midrule
+        5   & $\sim$ 13\%  & $59.9\times$ \\
+        10  & $\sim$ 10\%  & $30.0\times$ \\
+        20  & $\sim$ 7\%   & $15.0\times$ \\
+        50  & $\sim$ 4\%   & $6.0\times$ \\
+        100 & $\sim$ 2.3\% & $3.0\times$ \\
+        299 & $\sim$ 0.8\% & $1.0\times$ (break-even) \\
+        \bottomrule
+    \end{tabular}
+    \caption{Storage gain and relative error for selected truncation orders.}
+    \label{tab:gain}
+\end{table}
+
+% ============ QUESTION 2 ============
+\subsection{Reconstruction Error (Question 2)}
+
+The relative reconstruction error is measured using the Frobenius norm:
+\begin{equation}
+    \varepsilon(N) = \frac{\left\| \underline{\underline{M}} - \underline{\underline{M}}_{\text{POD}} \right\|_F}{\left\| \underline{\underline{M}} \right\|_F}
+\end{equation}
+
+Thanks to the orthogonality of the singular vectors, this error can be computed directly from the singular values without reconstructing the matrix at each step:
+\begin{equation}
+    \boxed{\varepsilon(N) = \frac{\sqrt{\displaystyle\sum_{i=N+1}^{r} \sigma_i^2}}{\sqrt{\displaystyle\sum_{i=1}^{r} \sigma_i^2}}}
+\end{equation}
+
+In MATLAB, this is implemented as:
+\begin{lstlisting}
+sigmas = diag(S);
+total_energy = sum(sigmas.^2);
+for N = 1:length(sigmas)
+    M_err(N) = sqrt(sum(sigmas(N+1:end).^2) / total_energy);
+end
+\end{lstlisting}
+
+The singular values decay rapidly (Figure~\ref{fig:svd_sv}), indicating that the image energy is concentrated in the first few modes. This translates into a fast decrease of the reconstruction error (Figure~\ref{fig:svd_err}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{svd_singular_values.png}
+    \caption{Singular values $\sigma_i$ in semi-logarithmic scale. The rapid decay confirms that most of the image information is captured by the first modes.}
+    \label{fig:svd_sv}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{svd_error.png}
+    \caption{Relative reconstruction error $\varepsilon(N)$ as a function of the number of modes $N$ (semi-logarithmic scale).}
+    \label{fig:svd_err}
+\end{figure}
+
+The visual quality of the reconstruction at different truncation orders is shown in Figure~\ref{fig:svd_recon}. With $N=1$, only the gross brightness pattern is visible. By $N=20$, the image is clearly recognizable. At $N=50$ and beyond, the reconstruction becomes visually indistinguishable from the original.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{svd_reconstructions.png}
+    \caption{Visual reconstruction quality for $N = 1, 5, 10, 20, 50,$ and $100$ modes.}
+    \label{fig:svd_recon}
+\end{figure}
+
+% ============ QUESTION 3 ============
+\subsection{Optimal Number of Modes (Question 3)}
+
+The choice of an appropriate truncation order depends on the trade-off between compression ratio and reconstruction fidelity. From the error curve and visual reconstructions:
+
+\begin{itemize}
+    \item For a \textbf{5\% error threshold}: $N \approx 42$ modes, giving a storage gain of $\sim 7\times$.
+    \item For a \textbf{visually satisfying} result: $N \approx 20$--$50$ modes is sufficient, with gains between $6\times$ and $15\times$.
+    \item For \textbf{strict fidelity} (error $< 1\%$): $N \approx 270$ modes are needed, but the gain drops to $\sim 1.1\times$, making compression barely worthwhile.
+\end{itemize}
+
+\textbf{Conclusion:} A practical choice is $N \approx 20$--$50$ modes, where the visual quality is excellent and the compression ratio remains significant. This illustrates the core principle of model order reduction: a small number of modes can capture the essential information in the data.
+
+\newpage
+
+% ============ PLACEHOLDER FOR PART 2 ============
+\section{PGD Approximation of a Random Space-Time Field}
+
+\textit{(To be completed after Session 1 -- Part 2)}
+
+\newpage
+
+\section{Comparison: SVD vs. PGD}
+
+\textit{(To be completed)}
+
+\end{document}
