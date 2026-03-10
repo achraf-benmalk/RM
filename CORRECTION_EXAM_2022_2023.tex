@@ -1,0 +1,517 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{xcolor}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{titlesec}
+\usepackage{hyperref}
+
+\geometry{top=1.8cm, bottom=1.8cm, left=2cm, right=2cm}
+
+\definecolor{darkblue}{RGB}{31,56,100}
+\definecolor{medblue}{RGB}{46,117,182}
+\definecolor{lightblue}{RGB}{220,235,250}
+\definecolor{darkred}{RGB}{160,30,30}
+\definecolor{lightred}{RGB}{255,230,230}
+\definecolor{darkgreen}{RGB}{30,120,50}
+\definecolor{lightgreen}{RGB}{230,250,230}
+\definecolor{lightyellow}{RGB}{255,250,220}
+\definecolor{lightorange}{RGB}{255,240,220}
+\definecolor{lightpurple}{RGB}{240,230,255}
+\definecolor{darkpurple}{RGB}{90,40,150}
+
+\tcbuselibrary{skins,breakable}
+
+\newtcolorbox{formulabox}[1][]{colback=lightblue,colframe=medblue,fonttitle=\bfseries,title=#1,breakable}
+\newtcolorbox{warningbox}[1][]{colback=lightred,colframe=darkred,fonttitle=\bfseries,title=#1,breakable}
+\newtcolorbox{tipbox}[1][]{colback=lightgreen,colframe=darkgreen,fonttitle=\bfseries,title=#1,breakable}
+\newtcolorbox{diffbox}[1][]{colback=lightorange,colframe=orange!80!black,fonttitle=\bfseries,title=#1,breakable}
+\newtcolorbox{linkbox}[1][]{colback=lightpurple,colframe=darkpurple,fonttitle=\bfseries,title=#1,breakable}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textcolor{gray}{Correction -- Examen MOR 2022-2023}}
+\fancyhead[R]{\small\textcolor{gray}{17 mars 2023}}
+\fancyfoot[C]{\thepage}
+
+\titleformat{\section}{\Large\bfseries\color{darkblue}}{\thesection}{1em}{}[\vspace{-0.3em}\color{medblue}\hrule\vspace{0.3em}]
+\titleformat{\subsection}{\large\bfseries\color{medblue}}{\thesubsection}{1em}{}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+
+\begin{document}
+
+% ============ TITLE ============
+\begin{center}
+{\Huge\bfseries\textcolor{darkblue}{Correction compl\`ete}}\\[0.3cm]
+{\LARGE\textcolor{darkblue}{Examen R\'eduction de Mod\`eles 2022--2023}}\\[0.3cm]
+{\large Vendredi 17 mars 2023 -- 2h -- ENS Paris-Saclay}
+\end{center}
+
+\begin{diffbox}[Diff\'erences avec l'examen 2025]
+\begin{itemize}[nosep]
+\item \textbf{Exercice 1 :} Quasi identique (POD/SVD/\texttt{svd()}). En 2025 on ajoute Kolmogorov (Q5).
+\item \textbf{Exercice 2 :} \textbf{Nouveau !} Probl\`eme param\'etr\'e avec source affine $f(x,\mu)$. Ce type de question teste la d\'ecomposition affine et la r\'eduction \`a un nombre fini de modes \textbf{exacts}.
+\item \textbf{Exercice 3 :} PGD (champ donn\'e + EDP), tr\`es proche de 2025 (Q6+Q7+Q9). La variable est $\mu$ au lieu de $t$.
+\end{itemize}
+\end{diffbox}
+
+\vspace{0.5cm}
+
+% ============================================================
+\section{Exercice 1 : Question de cours}
+% ============================================================
+
+\subsection{Q1 -- Interpr\'etation du probl\`eme de minimisation + POD de rang $n$}
+
+\textbf{\'Enonc\'e :} Donner l'interpr\'etation de~:
+\[
+\min_{\substack{\varphi \in \mathbb{R}^m \\ \|\varphi\|=1}} \sum_{i=1}^{N} \|u^i - \langle u^i,\varphi\rangle\varphi\|^2
+\]
+puis \'ecrire le probl\`eme POD de rang $n \leq N$.
+
+\begin{formulabox}[Solution]
+\textbf{Interpr\'etation :} On cherche la direction unitaire $\varphi$ qui minimise la somme des erreurs de projection des $N$ vecteurs $u^i$ sur la droite engendr\'ee par $\varphi$. C'est l'\textbf{axe principal} du nuage de points (analogue ACP).
+
+\medskip
+\textbf{Simplification par Pythagore :} Pour chaque $u^i$~:
+\[
+\|u^i\|^2 = \|\langle u^i,\varphi\rangle\varphi\|^2 + \|u^i - \langle u^i,\varphi\rangle\varphi\|^2
+\]
+Comme $\|\varphi\|=1$~: $\|\langle u^i,\varphi\rangle\varphi\|^2 = \langle u^i,\varphi\rangle^2$.
+
+Puisque $\|u^i\|^2$ est constant, minimiser l'erreur $\Leftrightarrow$ maximiser la projection~:
+\[
+\boxed{\max_{\|\varphi\|=1} \sum_{i=1}^{N} \langle u^i,\varphi\rangle^2 = \max_{\|\varphi\|=1}\; \varphi^T S\,\varphi} \qquad\text{avec}\quad S = XX^T
+\]
+La solution est le vecteur propre de $S$ associ\'e \`a la plus grande valeur propre (quotient de Rayleigh).
+
+\medskip
+\textbf{POD de rang $n$ :} Trouver une base orthonorm\'ee $\Phi = [\varphi_1,\ldots,\varphi_n]$~:
+\[
+\boxed{\min_{\Phi^T\Phi = I_n} \sum_{i=1}^{N} \|u^i - \Phi\Phi^Tu^i\|^2}
+\]
+Les $\varphi_k$ sont les $n$ vecteurs propres de $S = XX^T$ associ\'es aux $n$ plus grandes valeurs propres.
+\end{formulabox}
+
+% === Q2 ===
+\subsection{Q2 -- Th\'eor\`eme SVD + SVD tronqu\'ee}
+
+\begin{formulabox}[Solution]
+\textbf{Th\'eor\`eme SVD :} Toute matrice $X \in \mathbb{R}^{m\times N}$ admet la d\'ecomposition~:
+\[
+\boxed{X = U\Sigma V^T}
+\]
+\begin{itemize}[nosep]
+\item $U \in \mathbb{R}^{m\times m}$ orthogonale~: vecteurs singuliers \`a gauche
+\item $V \in \mathbb{R}^{N\times N}$ orthogonale~: vecteurs singuliers \`a droite
+\item $\Sigma \in \mathbb{R}^{m\times N}$ pseudo-diagonale~: $\sigma_1 \geq \sigma_2 \geq \cdots \geq \sigma_r > 0$ o\`u $r = \text{rang}(X)$
+\end{itemize}
+
+\medskip
+\textbf{SVD tronqu\'ee d'ordre $n$ :} On ne garde que les $n$ premiers termes~:
+\[
+\boxed{X_n = U_n\Sigma_n V_n^T = \sum_{k=1}^{n} \sigma_k\, u_k\, v_k^T}
+\]
+o\`u $U_n \in \mathbb{R}^{m\times n}$, $\Sigma_n \in \mathbb{R}^{n\times n}$, $V_n \in \mathbb{R}^{N\times n}$.
+
+C'est la \textbf{meilleure approximation de rang $n$} au sens de Frobenius (th\'eor\`eme d'Eckart--Young)~:
+\[
+\|X - X_n\|_F = \sqrt{\sum_{k=n+1}^{r} \sigma_k^2}
+\]
+\end{formulabox}
+
+% === Q3 ===
+\subsection{Q3 -- Lien POD / SVD + calcul via $S$}
+
+\begin{formulabox}[Solution]
+\textbf{Lien :} On injecte $X = U\Sigma V^T$ dans $S$~:
+\[
+S = XX^T = (U\Sigma V^T)(V\Sigma^T U^T) = U\Sigma\Sigma^T U^T = U\Lambda U^T
+\]
+car $V^TV = I_N$.
+
+\medskip
+\textbf{Conclusions :}
+\begin{enumerate}[nosep]
+\item Les colonnes de $U$ (vecteurs singuliers gauches) \textbf{sont} les vecteurs propres de $S$ (modes POD)
+\item $\boxed{\lambda_i = \sigma_i^2}$ \quad (valeurs propres de $S$ = carr\'es des valeurs singuli\`eres)
+\end{enumerate}
+
+\textbf{Calcul de la SVD via $S$ :}
+\begin{enumerate}[nosep]
+\item Former $S = XX^T \in \mathbb{R}^{m\times m}$
+\item Diagonaliser $S$ $\Rightarrow$ vecteurs propres $u_i$ (colonnes de $U$) et valeurs propres $\lambda_i$
+\item Valeurs singuli\`eres : $\sigma_i = \sqrt{\lambda_i}$
+\item Reconstituer $V$ colonne par colonne : $\displaystyle\boxed{v_i = \frac{1}{\sigma_i}X^Tu_i}$
+\end{enumerate}
+\end{formulabox}
+
+\begin{warningbox}[Remarque sur $S$]
+L'\'enonc\'e demande d'exprimer $S$ en fonction de $X$. La r\'eponse est simplement $S = XX^T$.
+
+Attention : on peut aussi former $C = X^TX \in \mathbb{R}^{N\times N}$ (matrice de Gram, plus petite si $N \ll m$). On a $C = V\Sigma^T\Sigma V^T = V\Lambda_N V^T$, ce qui donne les m\^emes valeurs propres non nulles. C'est souvent le choix pratique quand $m \gg N$.
+\end{warningbox}
+
+% === Q4 ===
+\subsection{Q4 -- \texttt{svd()} pour l'approximation \`a variables s\'epar\'ees}
+
+\begin{formulabox}[Solution]
+Soit $u(t,x)$ d\'efini sur $[0,T]\times[0,L]$, discr\'etis\'e en $N$ instants et $m$ points d'espace.
+
+\textbf{\'Etape 1 -- Construire la matrice des snapshots :}
+\[
+X \in \mathbb{R}^{m\times N}, \qquad X_{ij} = u(x_i, t_j)
+\]
+Chaque colonne = solution spatiale \`a un instant donn\'e.
+
+\textbf{\'Etape 2 -- Appeler \texttt{[U,S,V] = svd(X)}}
+
+\textbf{\'Etape 3 -- Approximation \`a variables s\'epar\'ees :}
+\[
+\boxed{u(x,t) \approx \sum_{k=1}^{n} \sigma_k\, U_k(x)\, V_k(t)}
+\]
+o\`u $U_k(x)$ est la $k$-\`eme colonne de $U$ (mode spatial) et $V_k(t)$ est la $k$-\`eme colonne de $V$ (coefficient temporel).
+
+\textbf{\'Etape 4 -- Choix du nombre de modes $n$ :} Le plus petit $n$ tel que l'erreur relative soit inf\'erieure \`a $\varepsilon$~:
+\[
+\boxed{\frac{\|X - X_n\|_F}{\|X\|_F} = \sqrt{\frac{\sum_{k=n+1}^{r}\sigma_k^2}{\sum_{k=1}^{r}\sigma_k^2}} \leq \varepsilon}
+\]
+\'Equivalemment, on cherche $n$ tel que~: $\displaystyle 1 - \frac{\sum_{k=1}^{n}\sigma_k^2}{\sum_{k=1}^{r}\sigma_k^2} \leq \varepsilon^2$.
+\end{formulabox}
+
+% ============================================================
+\section{Exercice 2 : Probl\`eme param\'etr\'e}
+% ============================================================
+
+\textbf{Donn\'ees :} $\mu = (\mu_1,\mu_2) \in \mathcal{D} = [0,1]^2$, $\Omega$ domaine born\'e r\'egulier de $\mathbb{R}^2$.
+
+$f_1, f_2, f_3 \in L^2(\Omega)$ fix\'ees, $f(x,\mu) = \mu_1 f_1(x) + \mu_2 f_2(x) + \mu_1\mu_2 f_3(x)$.
+
+Probl\`eme~:
+\[
+\left\{
+\begin{aligned}
+-\Delta u_\mu(x) &= f(x,\mu) && \text{dans } \Omega \\
+u_\mu &= 0 && \text{sur } \partial\Omega
+\end{aligned}
+\right.
+\tag{1-2}
+\]
+
+\subsection{Q5 -- Formulation variationnelle}
+
+\begin{formulabox}[Solution]
+\textbf{Espace fonctionnel :} $V = H^1_0(\Omega)$ (fonctions de $H^1(\Omega)$ nulles sur $\partial\Omega$).
+
+\textbf{Formulation variationnelle :} Trouver $u_\mu \in H^1_0(\Omega)$ tel que~:
+\[
+\boxed{\int_\Omega \nabla u_\mu \cdot \nabla v\,\mathrm{d}x = \int_\Omega f(x,\mu)\, v\,\mathrm{d}x \qquad \forall v \in H^1_0(\Omega)}
+\]
+\textbf{Notation compacte :} $(\nabla u_\mu, \nabla v) = (f(\cdot,\mu), v)$ \quad $\forall v \in H^1_0(\Omega)$.
+
+\medskip
+\textbf{Justification :} On multiplie $-\Delta u_\mu = f$ par $v \in H^1_0(\Omega)$, on int\`egre sur $\Omega$, on applique Green~:
+\[
+-\int_\Omega \Delta u_\mu\, v\,\mathrm{d}x = \int_\Omega \nabla u_\mu\cdot\nabla v\,\mathrm{d}x - \underbrace{\int_{\partial\Omega}\frac{\partial u_\mu}{\partial n}v\,\mathrm{d}s}_{= 0 \text{ car } v|_{\partial\Omega}=0}
+\]
+
+\textbf{Existence/unicit\'e :} par Lax--Milgram ($a(u,v) = (\nabla u, \nabla v)$ est coercive par Poincar\'e).
+\end{formulabox}
+
+% === Q6 ===
+\subsection{Q6 -- Structure affine de la solution}
+
+\begin{formulabox}[Solution -- Point cl\'e de l'exercice]
+On d\'efinit $\varphi_1, \varphi_2, \varphi_3 \in H^1_0(\Omega)$ comme les solutions des probl\`emes~:
+\[
+(\nabla\varphi_i, \nabla v) = (f_i, v) \qquad \forall v \in H^1_0(\Omega), \quad i = 1,2,3
+\tag{4}
+\]
+
+\textbf{D\'emonstration :} On injecte $f(x,\mu) = \mu_1 f_1 + \mu_2 f_2 + \mu_1\mu_2 f_3$ dans la formulation variationnelle~:
+\[
+(\nabla u_\mu, \nabla v) = \mu_1(f_1, v) + \mu_2(f_2, v) + \mu_1\mu_2(f_3, v)
+\]
+Par d\'efinition des $\varphi_i$~: $(f_i, v) = (\nabla\varphi_i, \nabla v)$. Donc~:
+\[
+(\nabla u_\mu, \nabla v) = \mu_1(\nabla\varphi_1, \nabla v) + \mu_2(\nabla\varphi_2, \nabla v) + \mu_1\mu_2(\nabla\varphi_3, \nabla v)
+\]
+Par lin\'earit\'e~:
+\[
+\big(\nabla(u_\mu - \mu_1\varphi_1 - \mu_2\varphi_2 - \mu_1\mu_2\varphi_3), \nabla v\big) = 0 \qquad \forall v \in H^1_0(\Omega)
+\]
+En prenant $v = u_\mu - \mu_1\varphi_1 - \mu_2\varphi_2 - \mu_1\mu_2\varphi_3$ et par coercivit\'e (Poincar\'e)~:
+\[
+\boxed{u_\mu(x) = \mu_1\,\varphi_1(x) + \mu_2\,\varphi_2(x) + \mu_1\mu_2\,\varphi_3(x)}
+\tag{3}
+\]
+C'est une \textbf{d\'ecomposition exacte \`a variables s\'epar\'ees} avec seulement 3 modes !
+\end{formulabox}
+
+\begin{linkbox}[Lien avec 2025 -- Adaptation]
+En 2025, le source est $f(x,t)$ et la PGD cherche une approximation. Ici, la structure \textbf{affine} du source en $\mu$ donne une d\'ecomposition \textbf{exacte} (pas d'approximation). C'est la base de la m\'ethode des \textbf{bases r\'eduites}~: si $f$ d\'epend affin\'ement de $\mu$, la solution aussi.
+
+Si l'examen 2026 change le source (ex: $\mu_1^2 f_1 + \sin(\mu_2) f_2$), la m\'ethode est identique : les $a_i(\mu)$ changent mais les $\varphi_i$ restent les m\^emes.
+\end{linkbox}
+
+% === Q7 ===
+\subsection{Q7 -- Valeurs de $a_1(\mu), a_2(\mu), a_3(\mu)$}
+
+\begin{formulabox}[Solution]
+Par identification directe avec l'\'equation (3)~:
+\[
+\boxed{a_1(\mu) = \mu_1, \qquad a_2(\mu) = \mu_2, \qquad a_3(\mu) = \mu_1\mu_2}
+\]
+Les coefficients sont simplement les fonctions de $\mu$ qui apparaissent dans la d\'ecomposition affine de $f$.
+\end{formulabox}
+
+% === Q8 ===
+\subsection{Q8 -- Mise en \oe{}uvre par \'el\'ements finis}
+
+\begin{formulabox}[Solution]
+Pour mettre en \oe{}uvre la formule (3) au moyen d'un code \'el\'ements finis~:
+
+\textbf{Phase hors-ligne (offline) -- une seule fois :}
+\begin{enumerate}[nosep]
+\item Mailler $\Omega$ et assembler la matrice de rigidit\'e $K$ et les vecteurs $F_1, F_2, F_3$ correspondant aux sources $f_1, f_2, f_3$
+\item R\'esoudre 3 syst\`emes lin\'eaires \textbf{ind\'ependants} avec la m\^eme matrice $K$~:
+\[
+K\Phi_1 = F_1, \qquad K\Phi_2 = F_2, \qquad K\Phi_3 = F_3
+\]
+(On peut factoriser $K$ une seule fois et r\'esoudre les 3 seconds membres)
+\item Stocker les vecteurs $\Phi_1, \Phi_2, \Phi_3$
+\end{enumerate}
+
+\textbf{Phase en-ligne (online) -- pour chaque nouveau $\mu$ :}
+\[
+\boxed{U_\mu = \mu_1\,\Phi_1 + \mu_2\,\Phi_2 + \mu_1\mu_2\,\Phi_3}
+\]
+C'est une simple \textbf{combinaison lin\'eaire} de 3 vecteurs : co\^ut n\'egligeable $\mathcal{O}(3 \times N_h)$.
+
+\medskip
+\textbf{Int\'er\^et :} On passe de ``r\'esoudre un syst\`eme $N_h \times N_h$ pour chaque $\mu$'' \`a ``3 additions de vecteurs''. C'est le principe de la \textbf{r\'eduction de mod\`ele} : co\^ut offline \'elev\'e, co\^ut online quasi nul.
+\end{formulabox}
+
+\begin{warningbox}[Pi\`ege Q8]
+Ne pas oublier que les CL sont $u_\mu = 0$ sur $\partial\Omega$, donc les $\varphi_i \in H^1_0(\Omega)$ et il n'y a pas de rel\`evement \`a faire ici. Si les CL d\'ependaient de $\mu$, il faudrait aussi d\'ecomposer le rel\`evement.
+\end{warningbox}
+
+% ============================================================
+\section{Exercice 3 : Proper Generalized Decomposition}
+% ============================================================
+
+\subsection{Partie A -- PGD pour un champ donn\'e $u(x,\mu)$}
+
+\textbf{Donn\'ees :} $\Omega \subset \mathbb{R}^d$ born\'e r\'egulier, $\mathcal{D}$ intervalle born\'e de $\mathbb{R}$.
+$u(x,\mu)$ donn\'ee sur $\Omega\times\mathcal{D}$, $L^2$.
+
+On cherche la meilleure approximation s\'epar\'ee de rang $n$~:
+\[
+u_m(x,\mu) = \sum_{i=1}^{n} \Lambda_i(x)\,\lambda_i(\mu)
+\]
+
+\subsection{Q9 -- Construction par algorithme glouton}
+
+\begin{formulabox}[Solution compl\`ete]
+\textbf{Principe glouton :} On conna\^{\i}t $u_{n-1} = \sum_{i=1}^{n-1}\Lambda_i\lambda_i$. On pose le r\'esidu $e = u - u_{n-1}$ et on cherche un nouveau couple $(R(x), S(\mu))$ minimisant~:
+\[
+J(R,S) = \frac{1}{2}\int_\mathcal{D}\int_\Omega \big(e(x,\mu) - R(x)S(\mu)\big)^2\,\mathrm{d}x\,\mathrm{d}\mu
+\]
+
+\textbf{R\'esolution par directions altern\'ees (point fixe) :}
+
+\medskip
+\underline{\'Etape 1 : $S(\mu)$ fix\'e $\Rightarrow$ trouver $R(x)$}
+
+On annule la variation par rapport \`a $R$ (test $R^*$)~:
+\[
+\int_\mathcal{D}\int_\Omega (e - RS)\,R^*S\,\mathrm{d}x\,\mathrm{d}\mu = 0 \quad\forall R^*
+\]
+On factorise et on s\'epare~:
+\[
+\boxed{R(x) = \frac{\displaystyle\int_\mathcal{D} e(x,\mu)\,S(\mu)\,\mathrm{d}\mu}{\displaystyle\int_\mathcal{D} S^2(\mu)\,\mathrm{d}\mu}}
+\]
+Le d\'enominateur est un \textbf{scalaire}. Le num\'erateur est une fonction de $x$ seul.
+
+\medskip
+\underline{\'Etape 2 : $R(x)$ fix\'e $\Rightarrow$ trouver $S(\mu)$}
+
+Par sym\'etrie~:
+\[
+\boxed{S(\mu) = \frac{\displaystyle\int_\Omega e(x,\mu)\,R(x)\,\mathrm{d}x}{\displaystyle\int_\Omega R^2(x)\,\mathrm{d}x}}
+\]
+
+\textbf{Algorithme complet :}
+\begin{enumerate}[nosep]
+\item $e = u - u_{n-1}$
+\item Initialiser $S(\mu)$ (ex: $S(\mu) = 1$)
+\item R\'ep\'eter jusqu'\`a convergence~:
+\begin{enumerate}[nosep,label=(\alph*)]
+\item Calculer $R(x)$ avec la formule ci-dessus
+\item Normaliser~: $R \leftarrow R/\|R\|_{L^2(\Omega)}$
+\item Calculer $S(\mu)$ avec la formule ci-dessus
+\item V\'erifier convergence~: $\|S_{\text{new}} - S_{\text{old}}\|/\|S_{\text{old}}\| < \text{tol}$
+\end{enumerate}
+\item Stocker $(\Lambda_n, \lambda_n) = (R, S)$
+\end{enumerate}
+
+\textbf{Contr\^ole de la qualit\'e \`a rang $m$ :}
+\[
+\boxed{\varepsilon_m = \frac{\|u - u_m\|_{L^2(\Omega\times\mathcal{D})}}{\|u\|_{L^2(\Omega\times\mathcal{D})}}}
+\]
+On arr\^ete l'enrichissement quand $\varepsilon_m < \text{tol}$ (typiquement $10^{-6}$). En pratique, on peut aussi surveiller l'amplitude $\|\Lambda_n\|\cdot\|\lambda_n\|$ du dernier mode ajout\'e.
+\end{formulabox}
+
+\begin{linkbox}[Lien avec 2025]
+C'est \textbf{exactement la Q6 de 2025}, mais avec $\mu$ au lieu de $t$. Les formules sont identiques~: il suffit de remplacer $\int_I \cdots\mathrm{d}t$ par $\int_\mathcal{D}\cdots\mathrm{d}\mu$.
+\end{linkbox}
+
+% === Q10 ===
+\subsection{Partie B -- PGD pour le probl\`eme aux d\'eriv\'ees partielles}
+
+\textbf{Probl\`eme :}
+\[
+\left\{
+\begin{aligned}
+-\Delta u_\mu(x) &= f(x,\mu) && \text{dans } \Omega \\
+u_\mu &= 0 && \text{sur } \partial\Omega
+\end{aligned}
+\right.
+\tag{5-6}
+\]
+pour $\mu \in \mathcal{D}$. PGD~: $u_\mu(x) \approx u_n(x,\mu) = \sum_{i=1}^{n}\Lambda_i(x)\lambda_i(\mu)$.
+
+\subsection{Q10 -- Formulation variationnelle + algorithme PGD Galerkin}
+
+\begin{formulabox}[Solution compl\`ete]
+
+\textbf{\'Etape 1 -- Formulation variationnelle :}
+
+Multiplier par $u^*(x,\mu)$, int\'egrer sur $\Omega \times \mathcal{D}$, appliquer Green~:
+\[
+\boxed{\int_\mathcal{D}\int_\Omega \nabla u \cdot \nabla u^*\,\mathrm{d}x\,\mathrm{d}\mu = \int_\mathcal{D}\int_\Omega f\,u^*\,\mathrm{d}x\,\mathrm{d}\mu}
+\]
+
+\textbf{\'Etape 2 -- Ansatz PGD :}
+
+On suppose $u_{n-1}$ connu et on cherche~: $u = u_{n-1} + R(x)S(\mu)$
+
+Fonction test s\'epar\'ee (variation totale)~: $u^* = R^*(x)S(\mu) + R(x)S^*(\mu)$
+
+\medskip
+\textbf{\'Etape 3 -- Sous-probl\`eme spatial} ($S(\mu)$ fix\'e, test $u^* = R^*S$)~:
+
+On injecte dans la formulation variationnelle~:
+\[
+\int_\mathcal{D}\int_\Omega \nabla(u_{n-1}+RS)\cdot\nabla(R^*S)\,\mathrm{d}x\,\mathrm{d}\mu = \int_\mathcal{D}\int_\Omega f\,R^*S\,\mathrm{d}x\,\mathrm{d}\mu
+\]
+On s\'epare les int\'egrales spatiales et param\'etriques~:
+\[
+\underbrace{\left(\int_\mathcal{D} S^2\,\mathrm{d}\mu\right)}_{\beta\text{ (scalaire)}} \int_\Omega \nabla R\cdot\nabla R^*\,\mathrm{d}x = \int_\Omega R^*\underbrace{\left(\int_\mathcal{D} f\,S\,\mathrm{d}\mu\right)}_{\tilde{f}(x)}\mathrm{d}x - \int_\Omega \nabla R^*\cdot\underbrace{\left(\int_\mathcal{D} \nabla u_{n-1}\,S\,\mathrm{d}\mu\right)}_{\text{fct de }x}\mathrm{d}x
+\]
+
+$\Rightarrow$ C'est un \textbf{probl\`eme de Poisson standard en $x$} pour $R(x)$ sur $\Omega$ avec CL $R=0$ sur $\partial\Omega$~:
+\[
+\boxed{\beta\int_\Omega \nabla R\cdot\nabla R^*\,\mathrm{d}x = \int_\Omega \tilde{f}\,R^*\,\mathrm{d}x - \sum_{l=1}^{n-1}\left(\int_\mathcal{D} \lambda_l S\,\mathrm{d}\mu\right)\int_\Omega\nabla\Lambda_l\cdot\nabla R^*\,\mathrm{d}x}
+\]
+
+\medskip
+\textbf{\'Etape 4 -- Sous-probl\`eme param\'etrique} ($R(x)$ fix\'e, test $u^* = RS^*$)~:
+
+De m\^eme~:
+\[
+\underbrace{\left(\int_\Omega |\nabla R|^2\,\mathrm{d}x\right)}_{a\text{ (scalaire)}} \int_\mathcal{D} S\,S^*\,\mathrm{d}\mu = \int_\mathcal{D} S^*\underbrace{\left(\int_\Omega f\,R\,\mathrm{d}x\right)}_{\hat{f}(\mu)}\mathrm{d}\mu - \int_\mathcal{D} S^*\sum_{l=1}^{n-1}\underbrace{\left(\int_\Omega\nabla\Lambda_l\cdot\nabla R\,\mathrm{d}x\right)}_{a_l\text{ (scalaire)}}\lambda_l\,\mathrm{d}\mu
+\]
+
+Comme il n'y a \textbf{pas de d\'eriv\'ee en $\mu$} (pas d'op\'erateur diff\'erentiel en $\mu$), on obtient une \textbf{\'equation alg\'ebrique}~:
+\[
+\boxed{S(\mu) = \frac{\hat{f}(\mu) - \sum_{l=1}^{n-1} a_l\,\lambda_l(\mu)}{a}}
+\]
+o\`u $a = \int_\Omega|\nabla R|^2\,\mathrm{d}x$ et $a_l = \int_\Omega\nabla\Lambda_l\cdot\nabla R\,\mathrm{d}x$.
+
+$S(\mu)$ se calcule \textbf{point par point} en $\mu$, sans r\'esolution d'\'equation diff\'erentielle !
+
+\medskip
+\textbf{Algorithme glouton Galerkin complet :}
+\begin{enumerate}[nosep]
+\item $u_0 = 0$
+\item Pour $n = 1, 2, \ldots$~:
+\begin{enumerate}[nosep,label=(\alph*)]
+\item Initialiser $S(\mu)$
+\item R\'ep\'eter (directions altern\'ees)~:
+\begin{itemize}[nosep]
+\item R\'esoudre le probl\`eme de Poisson spatial $\Rightarrow R(x)$
+\item Normaliser $R$
+\item Calculer $S(\mu)$ alg\'ebriquement
+\end{itemize}
+\item Convergence : $\|S_\text{new}-S_\text{old}\|/\|S_\text{old}\| < \text{tol}$
+\item Stocker $(\Lambda_n, \lambda_n) = (R, S)$, mettre \`a jour $u_n = u_{n-1} + \Lambda_n\lambda_n$
+\end{enumerate}
+\item Arr\^eter quand $\|\Lambda_n\|\cdot\|\lambda_n\|$ assez petit ou erreur globale $< \varepsilon$
+\end{enumerate}
+\end{formulabox}
+
+\begin{linkbox}[Lien avec 2025]
+C'est \textbf{l'analogue exact de Q7 (2025)}, mais avec $\mu$ au lieu de $t$. La diff\'erence cl\'e~:
+\begin{itemize}[nosep]
+\item \textbf{2025 (Poisson avec $t$)} : pas de d\'eriv\'ee temporelle $\Rightarrow$ \'etape temporelle = alg\'ebrique
+\item \textbf{2022 (Poisson avec $\mu$)} : pas de d\'eriv\'ee en $\mu$ $\Rightarrow$ \'etape param\'etrique = alg\'ebrique
+\item \textbf{2025 Q9 ($\partial_{tt}u$)} : d\'eriv\'ee seconde en $t$ $\Rightarrow$ \'etape temporelle = ODE ordre 2
+\item \textbf{Chaleur ($\partial_t u$)} : d\'eriv\'ee premi\`ere en $t$ $\Rightarrow$ \'etape temporelle = ODE ordre 1
+\end{itemize}
+\textbf{R\`egle g\'en\'erale :} l'\'etape dans la variable $\xi$ h\'erite de l'op\'erateur diff\'erentiel en $\xi$.
+\end{linkbox}
+
+\begin{warningbox}[Pi\`eges Exercice 3]
+\begin{itemize}[nosep]
+\item Ne pas oublier les \textbf{deux termes} de la fonction test : $u^* = R^*S + RS^*$
+\item Le d\'enominateur est toujours un \textbf{scalaire} (norme $L^2$ au carr\'e)
+\item Le sous-probl\`eme spatial est un vrai Poisson FE, le sous-probl\`eme param\'etrique est alg\'ebrique
+\item \textbf{Normaliser} $R$ apr\`es chaque r\'esolution spatiale
+\item Ne pas confondre cette PGD avec l'exercice 2 : ici c'est une approximation it\'erative, l\`a-bas c'\'etait une d\'ecomposition exacte gr\^ace \`a la structure affine
+\end{itemize}
+\end{warningbox}
+
+% ============================================================
+\section{R\'esum\'e des adaptations possibles pour 2026}
+% ============================================================
+
+\begin{tipbox}[Ce qui peut changer et comment s'adapter]
+\begin{enumerate}[nosep]
+\item \textbf{Source affine diff\'erente} (Ex 2) : $f = g_1(\mu)f_1(x) + g_2(\mu)f_2(x) + \cdots$
+
+$\Rightarrow$ M\^eme m\'ethode, les $a_i(\mu) = g_i(\mu)$ changent, les $\varphi_i$ restent
+
+\item \textbf{Op\'erateur diff\'erent} : $-\text{div}(k\nabla u) + cu = f$
+
+$\Rightarrow$ Formulation variationnelle adapt\'ee, structure PGD identique
+
+\item \textbf{Variable param\'etrique vectorielle} : $\mu \in \mathbb{R}^p$
+
+$\Rightarrow$ PGD identique, l'int\'egrale $\int_\mathcal{D}\mathrm{d}\mu$ est en dimension $p$
+
+\item \textbf{M\'elange temps + param\`etre} : $u(x,t,\mu)$
+
+$\Rightarrow$ PGD en 3 variables s\'epar\'ees : $\sum \Lambda_i(x)\lambda_i(t)\gamma_i(\mu)$, m\^eme principe
+
+\item \textbf{Conditions aux limites non homog\`enes}
+
+$\Rightarrow$ Rel\`evement (comme Q8 de 2025)
+\end{enumerate}
+\end{tipbox}
+
+\vfill
+\begin{center}
+\textit{La structure de tous ces exercices est la m\^eme : formulation variationnelle, ansatz s\'epar\'e, directions altern\'ees. Seul l'op\'erateur change.}
+\end{center}
+
+\end{document}
